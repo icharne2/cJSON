@@ -1,34 +1,36 @@
-name: Docker-based build of cJSON on ino_dev
+name: Build and package cJSON RPM
 
 on:
   push:
-    branches:
-      - ino_dev
+    branches: [ "ino_dev" ]
+  pull_request:
+    branches: [ "ino_dev" ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-rpm:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Build Docker image
+      - name: Build RPM inside Docker
         run: |
           docker build \
-            -f docker/Dockerfile.build1 \
-            -t cjson-builder:latest \
+            -f docker/Dockerfile.deploy \
+            -t cjson-rpm-builder:latest \
             .
 
-      - name: Extract build artifact
+      - name: Extract generated RPM
         run: |
-          CONTAINER_ID=\$(docker create cjson-builder:latest)
+          CONTAINER_ID=$(docker create cjson-rpm-builder:latest)
           mkdir -p artifacts
-          docker cp \$CONTAINER_ID:/app/build/libcjson.a artifacts/
-          docker rm \$CONTAINER_ID
+          docker cp $CONTAINER_ID:/app/mycjson.rpm artifacts/
+          docker rm $CONTAINER_ID
 
-      - name: Upload cJSON artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v2
         with:
-          name: cjson-lib
-          path: artifacts/libcjson.a
+          name: cjson-rpm
+          path: artifacts/*.rpm
