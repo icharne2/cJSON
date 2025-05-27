@@ -20,7 +20,7 @@ jobs:
           docker build \
             -f docker/Dockerfile.deploy \
             -t cjson-rpm-builder:latest \
-            .
+            docker/
 
       - name: Extract generated RPM
         run: |
@@ -34,3 +34,4 @@ jobs:
         with:
           name: cjson-rpm
           path: artifacts/*.rpm
+
