@@ -1,4 +1,4 @@
-name: Build and package cJSON RPM
+name: Build, package and test cJSON
 
 on:
   push:
@@ -8,30 +8,58 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-rpm:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
+      # checkout
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Build RPM inside Docker
+      # builduje obraz, który w /tmp/install tworzy RPM i w CMD kopiuje je do /out
+      - name: Build RPM image
         run: |
           docker build \
-            -f docker/Dockerfile.deploy \
-            -t cjson-rpm-builder:latest \
+            -f docker/Dockerfile.build1 \
+            -t cjson-builder-image \
             docker/
 
-      - name: Extract generated RPM
+      # uruchamia builder z volume, aby CMD skopiowało RPM do artifacts
+      - name: Extract RPM artifact
         run: |
-          CONTAINER_ID=$(docker create cjson-rpm-builder:latest)
           mkdir -p artifacts
-          docker cp $CONTAINER_ID:/app/mycjson.rpm artifacts/
-          docker rm $CONTAINER_ID
+          docker run --rm \
+            -v $PWD/artifacts:/out \
+            cjson-builder-image
 
-      - name: Upload RPM artifact
+      # upload RPM
+      - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: cjson-rpm
           path: artifacts/*.rpm
+
+      #  buduje i odpala kontener deployowy – ma skopiować RPM, skompilować example i je odpalić
+      - name: Build deploy image
+        run: |
+          docker build \
+            -f docker/Dockerfile.deploy \
+            -t cjson-deploy-image \
+            docker/
+
+      - name: Run example in deploy container
+        run: |
+          docker run --rm cjson-deploy-image
+
+      # buduje i uruchamia testy przez Dockerfile.test
+      - name: Build test image
+        run: |
+          docker build \
+            -f docker/Dockerfile.test \
+            -t cjson-test-image \
+            docker/
+
+      - name: Run tests
+        run: |
+          docker run --rm cjson-test-image
 
